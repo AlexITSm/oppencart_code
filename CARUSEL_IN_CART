@@ -1,0 +1,245 @@
+<!-- TITLU SECȚIUNE -->
+<h3 class="mp-carousel-title" style="text-align:center; font-size:18px; margin:20px 0; font-weight:500; color:#222;">
+  С ЭТИМ ТОВАРОМ ПОКУПАЮТ
+</h3>
+
+<!-- HTML -->
+<div class="mp-related-carousel-wrapper">
+  <div class="mp-related-carousel owl-carousel">
+    <?php foreach ($products as $product) { ?>
+      <div class="item">
+        <a href="<?php echo $product['href']; ?>">
+          <img src="<?php echo $product['thumb']; ?>" alt="<?php echo $product['name']; ?>" />
+        <p class="mp-related-title"><?php echo $product['name']; ?></p>
+        <p class="mp-related-price"><?php echo $product['price']; ?></p>
+        </a>
+        <div class="mp-related-button-box">
+          <button class="mp-related-button add-to-cart-btn" data-id="<?php echo $product['product_id']; ?>">В корзину</button>
+        </div>
+      </div>
+    <?php } ?>
+  </div>
+</div>
+
+<!-- Loader -->
+<div id="related-products-loader" style="display: none;">
+  <div class="masked"></div>
+  <div class="masked_loading"></div>
+</div>
+<script>
+$(document).ready(function(){
+  $('.mp-related-carousel').owlCarousel({
+    items: 4,
+    navigation: true,
+    pagination: false,
+    navigationText: [
+     '<svg width="50" height="50" viewBox="0 0 24 24"><path fill="#494949" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
+     '<svg width="50" height="50" viewBox="0 0 24 24"><path fill="#494949" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>'
+    ],
+
+    autoPlay: true,
+    responsive: true
+  });
+
+  // AJAX Add to cart
+  $('.add-to-cart-btn').on('click', function(e) {
+    e.preventDefault();
+    var product_id = $(this).data('id');
+    $('#related-products-loader').show();
+
+    $.ajax({
+      url: 'index.php?route=checkout/cart/add',
+      type: 'post',
+      data: {
+        product_id: product_id,
+        quantity: 1
+      },
+      dataType: 'json',
+      success: function(json) {
+        if (json['success']) {
+          $.ajax({
+            url: 'index.php?route=extension/module/oct_popup_cart',
+            type: 'get',
+            dataType: 'html',
+            success: function(html) {
+              $('#popup-cart-inner').html($(html).find('#popup-cart-inner').html());
+              $('#related-products-loader').hide();
+            },
+            error: function() {
+              $('#related-products-loader').hide();
+            }
+          });
+        } else {
+          $('#related-products-loader').hide();
+        }
+      },
+      error: function() {
+        $('#related-products-loader').hide();
+      }
+    });
+  });
+});
+</script>
+---------------------------------------------------------------
+<?php
+class ControllerExtensionModuleMpRelatedProducts extends Controller {
+    public function index() {
+        $this->load->language('extension/module/mp_related_products');
+        $this->load->model('catalog/product');
+        $this->load->model('tool/image');
+
+        $products = $this->cart->getProducts();
+        $related = [];
+
+        foreach ($products as $product) {
+            $related_products = $this->model_catalog_product->getProductRelated($product['product_id']);
+
+            foreach ($related_products as $related_product) {
+                if (!isset($related[$related_product['product_id']])) {
+                    $image = $this->model_tool_image->resize($related_product['image'], 200, 200);
+
+                    $related[$related_product['product_id']] = [
+                        'product_id' => $related_product['product_id'],
+                        'thumb'      => $image,
+                        'name'       => $related_product['name'],
+                        'price'      => $this->currency->format($this->tax->calculate($related_product['price'], $related_product['tax_class_id'], $this->config->get('config_tax')), $this->session->data['currency']),
+                        'href'       => $this->url->link('product/product', 'product_id=' . $related_product['product_id'])
+                    ];
+                }
+            }
+        }
+
+        $data['products'] = array_values($related);
+
+        return $this->load->view('extension/module/mp_related_products', $data);
+    }
+}
+---------------------------------------------------------------------------
+ .mp-related-carousel .item {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: inset 0px 0px 6px 0px #0000000d;
+    padding: 15px;
+    text-align: center;
+    height: 330px;
+    margin-right: 4px;
+    border: 1px solid #0000000d;
+    margin-left: 4px;
+  }
+  
+  .mp-related-carousel .item a img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    margin: 0 auto 10px;
+  }
+  
+  .mp-related-title {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #FF6700;
+    min-height: 60px;
+    margin-bottom: 5px;
+    line-height: 1.3;
+    text-align: center;
+  }
+  
+  .mp-related-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: #000;
+    margin-bottom: 10px;
+  }
+  
+  .mp-related-button-box {
+    margin-top: auto;
+  }
+  
+  .mp-related-button {
+    width: 100%;
+    background: linear-gradient(90deg, #70C4AA 36.88%, #209A99 100%);
+    border-radius: 20px;
+    border: 0;
+    color: white;
+    padding: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mp-related-button:hover {
+    background: linear-gradient(90deg, #70C4AA 36.88%, #209A99 100%);
+  }
+  
+  /* Săgeți */
+  .mp-related-carousel .owl-nav {
+    position: absolute;
+    top: 35%;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 10px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .mp-related-carousel-wrapper:hover .owl-nav {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mp-related-carousel .owl-nav button {
+    background: rgba(255, 103, 0, 0.8);
+    border: none;
+    color: white;
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .mp-related-carousel .owl-dots {
+    text-align: center;
+    margin-top: 20px;
+  }
+ 
+  .mp-related-carousel .owl-controls .owl-page span {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 20px;
+    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
+    border: 1px solid #ede9e9;
+}
+  .mp-related-carousel .owl-controls .owl-page.active span {
+    background: #FF6700;
+}
+.mp-related-carousel-wrapper .owl-wrapper-outer {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  -moz-border-radius: 0;
+  -o-border-radius: 0;
+  -webkit-box-shadow: 0;
+  -moz-box-shadow: 0;
+  -o-box-shadow: 0;
+}
+
+  /* Ascunde punctele pe mobil */
+  @media (max-width: 767px) {
+    .mp-related-carousel .owl-controls {
+      display: none !important;
+    }
+  }
+  
+
+
